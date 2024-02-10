@@ -60,11 +60,11 @@ TrainHMMmodel <- function(bw_file,
   for(ch in names(seqlen)){
     region <- GRanges(ch, IRanges(1,seqlen[ch]))
     bins = slidingWindows(region,width = winsize,step = stepsize)[[1]]
-    cat(yellow("About to remove blacklist regions\n"))
+    #cat(yellow("About to remove blacklist regions\n"))
     if(!is.null(blacklist)){
-      cat(yellow("Blacklist is not null\n"))
+      #cat(yellow("Blacklist is not null\n"))
       if(! written == FALSE) {
-        cat(yellow("removing blacklist regions\n"))
+        #cat(yellow("removing blacklist regions\n"))
         written = TRUE
       }
       bins = subsetByOverlaps(bins,blacklist,invert = T)

@@ -440,5 +440,5 @@ CallDomains <- function(bw_file,
   export.bed(Domains.gr,con = fout)
   cat(green(paste0("Saved in :", fout,"\n")))
   cat("\n")
-  return(Domains.gr)
+  #return(Domains.gr)
 }

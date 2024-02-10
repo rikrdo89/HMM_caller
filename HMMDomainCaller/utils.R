@@ -1,6 +1,3 @@
-
-
-
 #' Learns the parameters of a 2 states HHM
 #'
 #' @param bw_file Path to the input bigWig file
@@ -21,7 +18,7 @@
 #' bw_file = "./bigWig_examples/H3K27me3_4C_mm10.sorted.Q10.dedup.sorted.bw"
 #' hmmmodel = TrainHMMmodel(bw_file = bw_file,
 #'                          seqlen = seqlengths(BSgenome.Mmusculus.UCSC.mm10)[1:4],
-#'                          blacklist = mm10_blacklist_gr,
+#'                          blacklist = blacklist_gr,
 #'                          plot.model = FALSE,
 #'                          winsize = winsize,
 #'                          step=stepsize,
@@ -38,23 +35,22 @@ TrainHMMmodel <- function(bw_file,
                           w=3){
   
   cat(green("Estimating the initial distribution P0\n"))
-  
-  res <- estimateInitialDomainsDistribution(bw_file, seqlen,winsize = winsize, stepsize = stepsize,blacklist, smooth, w)
+
+  res <- estimateInitialDomainsDistribution(bw_file, seqlen,winsize = winsize, stepsize = stepsize, blacklist, smooth, w)
   initial <-  res$P0
-  
+
   P <- matrix(c(0.90,0.1,0.1,0.90),2,2)
   b <- list(mu = res$mu, sigma= res$sigma)
-  
+    
   ## Create initial model
   cat(green("defining model\n"))
-  f = function (x, j, model)
-  {
-    ret = dnorm(x, model$parms.emission$mu[j], sqrt(model$parms.emission$sigma[j]))
-    ret[is.na(ret)] = 1
-    #ret[is.infinite(ret)] = 1
-    ret
-  }
-  
+  f = function (x, j, model){
+      ret = dnorm(x, model$parms.emission$mu[j], sqrt(model$parms.emission$sigma[j]))
+      ret[is.na(ret)] = 1
+      #ret[is.infinite(ret)] = 1
+      ret
+    }
+
   model <- hmmspec(init = initial, trans = P, parms.emission = b, dens.emission = f)
   
   ##
@@ -64,8 +60,9 @@ TrainHMMmodel <- function(bw_file,
   for(ch in names(seqlen)){
     region <- GRanges(ch, IRanges(1,seqlen[ch]))
     bins = slidingWindows(region,width = winsize,step = stepsize)[[1]]
-    
+    cat(yellow("About to remove blacklist regions\n"))
     if(!is.null(blacklist)){
+      cat(yellow("Blacklist is not null\n"))
       if(! written == FALSE) {
         cat(yellow("removing blacklist regions\n"))
         written = TRUE
@@ -141,6 +138,7 @@ estimateInitialDomainsDistribution <- function(bw_file, seqlen, winsize=5000, st
     region <- GRanges(ch, IRanges(1, seqlen[ch]))
     bins = slidingWindows(region,width = winsize,step = stepsize)[[1]]
     if(!is.null(blacklist)){
+      cat(yellow("About to remove blacklist regions in estimateInitialDomainsDistribution\n"))
       bins = subsetByOverlaps(bins,blacklist,invert = T)
     }
     bins$score  = calcPeaksSignal(bins, bw_file)$meanScore
@@ -208,7 +206,8 @@ CallPeaksFromTrainedModel <- function(bw_file, hmmmodel,
                             winsize = 5e3,
                             stepsize = 5e3,
                             smooth = FALSE, w=3, 
-                            asDomains = TRUE){
+                            asDomains = TRUE,
+                            blacklist_gr = NULL) { # Add blacklist_gr parameter , by RLS
   
   refGenome = switch (genome,
                       mm9 = BSgenome.Mmusculus.UCSC.mm9::Mmusculus,
@@ -223,6 +222,8 @@ CallPeaksFromTrainedModel <- function(bw_file, hmmmodel,
   
   if(is.null(chromosomes)){
     chromosomes = seqlevels(refGenome)
+    chromosomes <- chromosomes[chromosomes %in% paste0("chr", c(1:22, "X", "Y"))] # Add chr filter, by RLS
+
   }else{
     chromosomes = intersect(chromosomes, seqlevels(refGenome))
   }
@@ -239,7 +240,14 @@ CallPeaksFromTrainedModel <- function(bw_file, hmmmodel,
     
     ## Binning chromosome
     region <- GRanges(ch, IRanges(1,seqlengths(refGenome)[ch]))
-    bins[[ch]] = slidingWindows(region,width = winsize,step = stepsize)[[1]]
+    # bins[[ch]] = slidingWindows(region,width = winsize,step = stepsize)[[1]]
+    chromosome_bins <- slidingWindows(region,width = winsize,step = stepsize)[[1]]
+    # Exclude bins that overlap with blacklist regions if blacklist is provided
+    if(!is.null(blacklist_gr)) {
+      chromosome_bins = subsetByOverlaps(chromosome_bins, blacklist_gr, invert = TRUE)
+    }
+    
+    bins[[ch]] = chromosome_bins
     
   }
   setTxtProgressBar(pb,1)
@@ -379,7 +387,7 @@ CallDomains <- function(bw_file,
                         training.chrom = glue("chr{1:4}"), 
                         chromsToUse = glue("chr{1:19}"),
                         genome="mm10", 
-                        mm10_blacklist_gr=GRanges(),
+                        blacklist_gr=GRanges(),
                         saveProbs = FALSE,
                         plot.model=FALSE,
                         outDir = "Domains"                        
@@ -398,7 +406,7 @@ CallDomains <- function(bw_file,
   cat(yellow("\n*) Training model\n"))
   hmmmodel = TrainHMMmodel(bw_file = bw_file,
                            seqlen = seqlengths(refGenome)[training.chrom],
-                           blacklist = mm10_blacklist_gr,
+                           blacklist = blacklist_gr,
                            plot.model = plot.model,
                            winsize = winsize,
                            step=stepsize,
@@ -417,11 +425,12 @@ CallDomains <- function(bw_file,
 
   Domains.gr = suppressWarnings(CallPeaksFromTrainedModel(bw_file, 
                                                 hmmmodel, 
-                                                genome = 'mm10',
+                                                genome = genome,
                                                 chromosomes=chromsToUse,
                                                 prob_fout = fprob,
                                                 smooth = smooth,
-                                                w = w))
+                                                w = w,
+                                                blacklist_gr = blacklist_gr)) # added blacklist_gr parameter, by RLS
   
   cat(yellow("\nGenerating bed file\n"))
   cat(yellow(" ====================\n"))

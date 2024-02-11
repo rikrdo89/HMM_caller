@@ -138,7 +138,7 @@ estimateInitialDomainsDistribution <- function(bw_file, seqlen, winsize=5000, st
     region <- GRanges(ch, IRanges(1, seqlen[ch]))
     bins = slidingWindows(region,width = winsize,step = stepsize)[[1]]
     if(!is.null(blacklist)){
-      cat(yellow("About to remove blacklist regions in estimateInitialDomainsDistribution\n"))
+      #cat(yellow("About to remove blacklist regions in estimateInitialDomainsDistribution\n"))
       bins = subsetByOverlaps(bins,blacklist,invert = T)
     }
     bins$score  = calcPeaksSignal(bins, bw_file)$meanScore

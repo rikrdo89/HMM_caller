@@ -435,7 +435,13 @@ CallDomains <- function(bw_file,
   cat(yellow("\nGenerating bed file\n"))
   cat(yellow(" ====================\n"))
   fout = basename(bw_file) %>% tools::file_path_sans_ext()
-  fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_domains.bed")
+  
+
+  if(!is.null(blacklist_gr)){
+    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_woBlklst_domains.bed")
+   }else{
+    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_domains.bed")
+   }
   
   export.bed(Domains.gr,con = fout)
   cat(green(paste0("Saved in :", fout,"\n")))

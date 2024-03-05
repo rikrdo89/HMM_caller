@@ -438,9 +438,9 @@ CallDomains <- function(bw_file,
   
 
   if(!is.null(blacklist_gr)){
-    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_woBlklst_domains.bed")
+    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_wBlklst_domains.bed")
    }else{
-    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_domains.bed")
+    fout <- glue("{outDir}/{fout}_{round(winsize/1e3,2)}_woBlklst_domains.bed")
    }
   
   export.bed(Domains.gr,con = fout)
